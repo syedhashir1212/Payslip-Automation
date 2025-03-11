@@ -22,13 +22,13 @@ def auth_id(smtp_username, smtp_password, smtp_server, smtp_port):
     with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
         try:
             server.login(smtp_username, smtp_password)
-            print("✅ SMTP Authentication Successful!")
+            st.success("✅ SMTP Authentication Successful!")
             return True
         except Exception as e:
-            print(f"❌ SMTP Authentication Failed! Error: {e}")
+            st.error(f"❌ SMTP Authentication Failed! Error: {e}")
             return False
 
-def send_email(subject, emp_name, emp_salary, sender_email, receiver_email, attachment_filename, smtp_server, smtp_port, smtp_username, smtp_password, retries=3, delay=5):
+def send_email(subject, emp_code, emp_name, emp_salary, sender_email, receiver_email, attachment_filename, smtp_server, smtp_port, smtp_username, smtp_password, retries=3, delay=5):
     """Send an email with an attached payslip PDF, with retry logic."""
     msg = MIMEMultipart()
     msg['From'] = sender_email
@@ -54,7 +54,7 @@ def send_email(subject, emp_name, emp_salary, sender_email, receiver_email, atta
         part.add_header('Content-Disposition', f"attachment; filename={os.path.basename(attachment_filename)}")
         msg.attach(part)
     else:
-        print(f"⚠️ Warning: Attachment file not found - {attachment_filename}")
+        st.warning(f"⚠️ Warning: Attachment file not found - {attachment_filename}")
 
     for attempt in range(1, retries + 1):
         try:
@@ -62,23 +62,23 @@ def send_email(subject, emp_name, emp_salary, sender_email, receiver_email, atta
                 server.login(smtp_username, smtp_password)
                 server.sendmail(sender_email, receiver_email, msg.as_string())
 
-            print(f"✅ Email sent to {receiver_email}")
+            st.success(f"✅ Email sent to {receiver_email} (Emp Code: {emp_code})")
             return True
 
         except Exception as e:
-            print(f"❌ Attempt {attempt}/{retries}: Failed to send email to {receiver_email}. Error: {e}")
-            logging.error(f"Failed to send email to {receiver_email} on attempt {attempt}. Error: {e}")
-            time.sleep(delay)  # Wait before retrying
+            st.error(f"❌ Attempt {attempt}/{retries}: Failed to send email to {receiver_email} (Emp Code: {emp_code}). Error: {e}")
+            logging.error(f"Failed to send email to {receiver_email} (Emp Code: {emp_code}) on attempt {attempt}. Error: {e}")
+            time.sleep(delay)
 
-    print(f"❌ Final failure: Could not send email to {receiver_email} after {retries} attempts.")
+    st.error(f"❌ Final failure: Could not send email to {receiver_email} (Emp Code: {emp_code}) after {retries} attempts.")
     return False
 
 def send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year):
     try:
-        print("📂 Loading Employee Data...")
+        st.info("📂 Loading Employee Data...")
         data = pd.read_excel(emp_sheet)
         data.columns = data.columns.str.strip()
-        print("✅ Employee Data Loaded Successfully!")
+        st.success("✅ Employee Data Loaded Successfully!")
 
         pdf_file_path = payslip_pdf
         out_folder = f'{month}-{year}'
@@ -89,7 +89,7 @@ def send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year
         total_pages = len(pdf_reader.pages)
 
         data_lst = []
-        print("🔍 Extracting Employee Details from Payslips...")
+        st.info("🔍 Extracting Employee Details from Payslips...")
 
         for page_num, page in enumerate(pdf_reader.pages):
             output_file_path = f"{out_folder}/{page_num}.pdf"
@@ -135,11 +135,11 @@ def send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year
             return 0, total_pages, data_lst
 
         emails_sent = 0
-        batch_count = 0  # Track number of emails sent in a batch
+        batch_count = 0
 
         for i, (emp_code, emp_name, emp_email, attachment_filename, status) in enumerate(data_lst):
             if status == 'Ready to Send':
-                if send_email(subject, emp_name, emp_salary, email_id, emp_email, attachment_filename, smtp_server, smtp_port, smtp_username, smtp_password):
+                if send_email(subject, emp_code, emp_name, emp_salary, email_id, emp_email, attachment_filename, smtp_server, smtp_port, smtp_username, smtp_password):
                     emails_sent += 1
                     data_lst[i][-1] = 'Sent'
                     batch_count += 1
@@ -148,19 +148,17 @@ def send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year
 
                 time.sleep(random.randint(2, 5))
 
-                # Add a 2-minute delay after every 10 emails sent
                 if batch_count == 50:
-                    print("⏳ Waiting 2 minutes before sending more emails...")
+                    st.info("⏳ Waiting 2 minutes before sending more emails...")
                     time.sleep(120)
-                    batch_count = 0  # Reset the batch count
+                    batch_count = 0
 
         shutil.rmtree(out_folder, ignore_errors=True)
         return emails_sent, total_pages, data_lst
 
     except Exception as e:
-        print(f"❌ Error Occurred: {e}")
+        st.error(f"❌ Error Occurred: {e}")
         return 0, 0, []
-
 
 def main():
     st.title("PaySlip Email Sender")
@@ -171,7 +169,7 @@ def main():
     subject = st.text_input("Enter email subject:")
     month = st.text_input("Enter month:")
     year = st.text_input("Enter year:")
-
+    
     if st.button("Send Email"):
         count, total_pages, data_lst = send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year)
         st.success(f"Out of {total_pages} payslips, {count} emails were sent successfully!")
