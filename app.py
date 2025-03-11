@@ -149,7 +149,7 @@ def send_mail(email_id, email_pass, payslip_pdf, emp_sheet, subject, month, year
                 time.sleep(random.randint(2, 5))
 
                 # Add a 2-minute delay after every 10 emails sent
-                if batch_count == 10:
+                if batch_count == 50:
                     print("⏳ Waiting 2 minutes before sending more emails...")
                     time.sleep(120)
                     batch_count = 0  # Reset the batch count
